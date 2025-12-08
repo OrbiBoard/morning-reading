@@ -2,7 +2,7 @@
   "id": "morning.reading",
   "name": "早读助手",
   "icon": "ri-sun-foggy-line",
-  "author": "LessonPlugin",
+  "author": "OrbiBoard",
   "description": "站立早读提醒、早读看板等功能",
   "actions": [
     {
