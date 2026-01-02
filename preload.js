@@ -22,9 +22,9 @@ contextBridge.exposeInMainWorld('pluginAPI', {
   asset: (relPath) => ipcRenderer.invoke('asset:url', relPath),
   ui: {
     ensureStyles: async () => {
-      const add = (href) => { try { const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = href; document.head.appendChild(link); } catch {} };
+      const add = (href) => { try { const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = href; document.head.appendChild(link); } catch (e) {} };
       const paths = ['titlebar.css', 'settings.css', 'remixicon-local.css', 'fonts-local.css'];
-      for (const p of paths) { try { const url = await ipcRenderer.invoke('asset:url', p); if (url) add(url); } catch {} }
+      for (const p of paths) { try { const url = await ipcRenderer.invoke('asset:url', p); if (url) add(url); } catch (e) {} }
     },
     insertTitlebar: (titleText) => {
       try {
@@ -38,7 +38,7 @@ contextBridge.exposeInMainWorld('pluginAPI', {
         actions.appendChild(mkBtn('close', 'close', 'ri-close-line'));
         bar.appendChild(drag); bar.appendChild(actions);
         document.body.insertBefore(bar, document.body.firstChild);
-      } catch {}
+      } catch (e) {}
     },
     applyWindowTheme: (opts = {}) => {
       try {
@@ -48,7 +48,7 @@ contextBridge.exposeInMainWorld('pluginAPI', {
         const style = document.createElement('style');
         style.textContent = `.wrap{padding:20px}.btn{padding:8px 12px;border:none;border-radius:8px;cursor:pointer}.btn.primary{background:#22c55e;color:#071a12}.btn.secondary{background:#334155;color:#e6f1ff}.titlebar{display:flex;align-items:center;justify-content:space-between;height:36px;padding:0 8px;background:${darkBg};color:${fg};-webkit-app-region:drag}.titlebar .window-actions{display:flex;gap:6px;-webkit-app-region:no-drag}.titlebar .win-btn{width:28px;height:28px;border:none;border-radius:6px;background:rgba(255,255,255,0.08);color:${fg};cursor:pointer}.titlebar .win-btn.close{background:#ef4444;color:#fff}`;
         document.head.appendChild(style);
-      } catch {}
+      } catch (e) {}
     }
   }
 });

@@ -8,7 +8,7 @@ let boardWin = null;
 let buttonWin = null;
 let activeBoard = null;
 // 轻日志开关：跟随 system.debugLog 或 LP_DEBUG
-const log = (...args) => { try { const enabled = (store.get('system','debugLog') || process.env.LP_DEBUG); if (enabled) console.log('[MorningReading]', ...args); } catch {} };
+const log = (...args) => { try { const enabled = (store.get('system','debugLog') || process.env.LP_DEBUG); if (enabled) console.log('[MorningReading]', ...args); } catch (e) {} };
 
 function openSettingsWindow() {
   if (settingsWin && !settingsWin.isDestroyed()) {
@@ -64,7 +64,7 @@ function handleMinuteTrigger(curHHMM) {
         const weekIndex = Math.floor(diffDays / 7);
         isEvenWeek = weekIndex % 2 === 0;
         if (biweekOff) isEvenWeek = !isEvenWeek;
-      } catch {}
+      } catch (e) {}
     }
     const matchBiweek = (rule) => {
       if (rule === 'any' || rule == null) return true;
@@ -105,21 +105,21 @@ function handleMinuteTrigger(curHHMM) {
       const end = String(p?.end || '').slice(0,5);
       if (!onWeekday || !biweekOk) continue;
       if (start === curHHMM) {
-        try { openBoardWindow(p); } catch {}
+        try { openBoardWindow(p); } catch (e) {}
       }
       if (end === curHHMM) {
-        try { if (buttonWin && !buttonWin.isDestroyed()) { buttonWin.close(); buttonWin = null; } } catch {}
+        try { if (buttonWin && !buttonWin.isDestroyed()) { buttonWin.close(); buttonWin = null; } } catch (e) {}
       }
     }
     log('enqueueBatch:size', payloads.length);
     if (payloads.length && pluginApi) {
       try {
         Promise.resolve(pluginApi.call('notify.plugin', 'enqueueBatch', [payloads]))
-          .then((res) => { try { log('notify:result', !!res?.ok, res?.error || null); } catch {} })
-          .catch((e) => { try { log('notify:error', e?.message || String(e)); } catch {} });
-      } catch (e) { try { log('notify:call:thrown', e?.message || String(e)); } catch {} }
+          .then((res) => { try { log('notify:result', !!res?.ok, res?.error || null); } catch (e) {} })
+          .catch((e) => { try { log('notify:error', e?.message || String(e)); } catch (e) {} });
+      } catch (e) { try { log('notify:call:thrown', e?.message || String(e)); } catch (e) {} }
     }
-  } catch {}
+  } catch (e) {}
 }
 
 function openBoardWindow(period) {
@@ -143,9 +143,9 @@ function openBoardWindow(period) {
     });
     boardWin = win;
     win.loadFile(path.join(__dirname, 'board.html'));
-    win.on('closed', () => { boardWin = null; try { if (isBoardPeriodActive()) openOpenButton(); } catch {} });
+    win.on('closed', () => { boardWin = null; try { if (isBoardPeriodActive()) openOpenButton(); } catch (e) {} });
     return win;
-  } catch { return null; }
+  } catch (e) { return null; }
 }
 
 function openOpenButton() {
@@ -177,7 +177,7 @@ function openOpenButton() {
     win.loadFile(path.join(__dirname, 'open-button.html'));
     win.on('closed', () => { buttonWin = null; });
     return win;
-  } catch { return null; }
+  } catch (e) { return null; }
 }
 
 function isBoardPeriodActive() {
@@ -196,7 +196,7 @@ function isBoardPeriodActive() {
         const weekIndex = Math.floor(diffDays / 7);
         isEvenWeek = weekIndex % 2 === 0;
         if (biweekOff) isEvenWeek = !isEvenWeek;
-      } catch {}
+      } catch (e) {}
     }
     const matchBiweek = (rule) => { if (rule === 'any' || rule == null) return true; if (isEvenWeek == null) return false; return rule === 'even' ? isEvenWeek : !isEvenWeek; };
     const hh = now.getHours().toString().padStart(2, '0');
@@ -214,7 +214,7 @@ function isBoardPeriodActive() {
       }
     }
     return false;
-  } catch { return false; }
+  } catch (e) { return false; }
 }
 
 module.exports = {
@@ -232,7 +232,7 @@ module.exports = {
       ]));
       pluginApi.automation.registerMinuteTriggers(times, handleMinuteTrigger);
       if (isBoardPeriodActive()) openBoardWindow(null);
-    } catch {}
+    } catch (e) {}
   },
   functions: {
     openSettings: () => { openSettingsWindow(); return true; },
@@ -269,8 +269,8 @@ module.exports = {
     openBoard: () => { try { openBoardWindow(null); return true; } catch (e) { return { ok: false, error: e?.message || String(e) }; } },
     closeBoard: () => { try { if (boardWin && !boardWin.isDestroyed()) boardWin.close(); return true; } catch (e) { return { ok: false, error: e?.message || String(e) }; } },
     ensureOpenButton: () => { try { if (isBoardPeriodActive()) openOpenButton(); return true; } catch (e) { return { ok: false, error: e?.message || String(e) }; } },
-    setOpenButtonDragging: (flag) => { try { return !!flag; } catch { return false; } },
-    getOpenButtonBounds: () => { try { if (!buttonWin || buttonWin.isDestroyed()) return null; return buttonWin.getBounds(); } catch { return null; } },
+    setOpenButtonDragging: (flag) => { try { return !!flag; } catch (e) { return false; } },
+    getOpenButtonBounds: () => { try { if (!buttonWin || buttonWin.isDestroyed()) return null; return buttonWin.getBounds(); } catch (e) { return null; } },
     moveOpenButtonTo: (x, y) => {
       try {
         if (!buttonWin || buttonWin.isDestroyed()) return false;
@@ -280,7 +280,7 @@ module.exports = {
         const ny = Math.max(sb.y, Math.min(y, sb.y + sb.height - wb.height));
         buttonWin.setPosition(Math.floor(nx), Math.floor(ny));
         return true;
-      } catch { return false; }
+      } catch (e) { return false; }
     },
     snapOpenButton: () => {
       try {
@@ -296,7 +296,7 @@ module.exports = {
         if (Math.abs((wb.y + wb.height) - (b.y + b.height)) <= th) y = b.y + b.height - wb.height;
         if (x !== wb.x || y !== wb.y) buttonWin.setPosition(x, y);
         return true;
-      } catch { return false; }
+      } catch (e) { return false; }
     },
     previewStart: async (period) => {
       try {
