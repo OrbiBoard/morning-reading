@@ -446,9 +446,9 @@
           </div>`;
         // 事件
         const chk = item.querySelector('input[type=checkbox]');
-        chk.addEventListener('change', async (e) => { p.enabled = e.target.checked; await window.settingsAPI?.configSet('morning-reading', 'periods', periods); await window.settingsAPI?.pluginCall('morning.reading', 'setSchedule', [periods]); });
+        chk.addEventListener('change', async (e) => { p.enabled = e.target.checked; await window.settingsAPI?.configSet('morning-reading', 'periods', periods); await window.settingsAPI?.pluginCall('morning-reading', 'setSchedule', [periods]); });
         item.querySelector('[data-op=edit]').addEventListener('click', () => { fillEditor(p, idx); });
-        item.querySelector('[data-op=del]').addEventListener('click', async () => { periods.splice(idx, 1); await window.settingsAPI?.configSet('morning-reading', 'periods', periods); await window.settingsAPI?.pluginCall('morning.reading', 'setSchedule', [periods]); renderList(); });
+        item.querySelector('[data-op=del]').addEventListener('click', async () => { periods.splice(idx, 1); await window.settingsAPI?.configSet('morning-reading', 'periods', periods); await window.settingsAPI?.pluginCall('morning-reading', 'setSchedule', [periods]); renderList(); });
         listEl.appendChild(item);
       });
     }
@@ -473,9 +473,9 @@
             <button class="btn danger" data-op="del"><i class="ri-delete-bin-line"></i> 删除</button>
           </div>`;
         const chk = item.querySelector('input[type=checkbox]');
-        chk.addEventListener('change', async (e) => { p.enabled = e.target.checked; await window.settingsAPI?.configSet('morning-reading', 'boardPeriods', boardPeriods); await window.settingsAPI?.pluginCall('morning.reading', 'setBoardSchedule', [boardPeriods]); });
+        chk.addEventListener('change', async (e) => { p.enabled = e.target.checked; await window.settingsAPI?.configSet('morning-reading', 'boardPeriods', boardPeriods); await window.settingsAPI?.pluginCall('morning-reading', 'setBoardSchedule', [boardPeriods]); });
         item.querySelector('[data-op=edit]').addEventListener('click', () => { fillBoardEditor(p, idx); });
-        item.querySelector('[data-op=del]').addEventListener('click', async () => { boardPeriods.splice(idx, 1); await window.settingsAPI?.configSet('morning-reading', 'boardPeriods', boardPeriods); await window.settingsAPI?.pluginCall('morning.reading', 'setBoardSchedule', [boardPeriods]); renderBoardList(); });
+        item.querySelector('[data-op=del]').addEventListener('click', async () => { boardPeriods.splice(idx, 1); await window.settingsAPI?.configSet('morning-reading', 'boardPeriods', boardPeriods); await window.settingsAPI?.pluginCall('morning-reading', 'setBoardSchedule', [boardPeriods]); renderBoardList(); });
         listEl.appendChild(item);
       });
     }
@@ -593,18 +593,18 @@
       const cur = readEditor();
       periods[currentIndex] = { ...periods[currentIndex], ...cur };
       await window.settingsAPI?.configSet('morning-reading', 'periods', periods);
-      await window.settingsAPI?.pluginCall('morning.reading', 'setSchedule', [periods]);
+      await window.settingsAPI?.pluginCall('morning-reading', 'setSchedule', [periods]);
       renderList();
     });
     $('#btn-test-start')?.addEventListener('click', async () => {
       if (currentIndex == null) return;
       const cur = readEditor();
-      await window.settingsAPI?.pluginCall('morning.reading', 'previewStart', [cur]);
+      await window.settingsAPI?.pluginCall('morning-reading', 'previewStart', [cur]);
     });
     $('#btn-test-end')?.addEventListener('click', async () => {
       if (currentIndex == null) return;
       const cur = readEditor();
-      await window.settingsAPI?.pluginCall('morning.reading', 'previewEnd', [cur]);
+      await window.settingsAPI?.pluginCall('morning-reading', 'previewEnd', [cur]);
     });
     $('#btn-b-add')?.addEventListener('click', addBoardItem);
     $('#btn-b-save')?.addEventListener('click', async () => {
@@ -612,10 +612,10 @@
       const cur = readBoardEditor();
       boardPeriods[currentBoardIndex] = { ...boardPeriods[currentBoardIndex], ...cur };
       await window.settingsAPI?.configSet('morning-reading', 'boardPeriods', boardPeriods);
-      await window.settingsAPI?.pluginCall('morning.reading', 'setBoardSchedule', [boardPeriods]);
+      await window.settingsAPI?.pluginCall('morning-reading', 'setBoardSchedule', [boardPeriods]);
       renderBoardList();
     });
-    $('#btn-b-open')?.addEventListener('click', async () => { await window.settingsAPI?.pluginCall('morning.reading', 'openBoard', []); });
+    $('#btn-b-open')?.addEventListener('click', async () => { await window.settingsAPI?.pluginCall('morning-reading', 'openBoard', []); });
 
     init();
     // 默认未选择：右侧不显示设置，需点击编辑或新增。

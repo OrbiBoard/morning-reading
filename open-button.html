@@ -17,16 +17,16 @@
     window.pluginAPI?.ui.ensureStyles();
     const btn = document.getElementById('btn-open');
     let dragging = false; let sx=0, sy=0; let bx=0, by=0; let moved=false; let justDragged=false; let rafScheduled = false; let nextX = 0, nextY = 0;
-    btn.addEventListener('click',async(e)=>{ if (dragging || moved || justDragged) return; try{ await window.pluginAPI?.call('morning.reading','openBoard',[]); window.pluginAPI?.windowControl('close'); }catch (e) {} });
+    btn.addEventListener('click',async(e)=>{ if (dragging || moved || justDragged) return; try{ await window.pluginAPI?.call('morning-reading','openBoard',[]); window.pluginAPI?.windowControl('close'); }catch (e) {} });
     const onDown = async (e)=>{
       try{
         dragging = true; moved=false; e.target.setPointerCapture?.(e.pointerId);
-        const raw = await window.pluginAPI?.call('morning.reading','getOpenButtonBounds',[]);
+        const raw = await window.pluginAPI?.call('morning-reading','getOpenButtonBounds',[]);
         const b = (raw && raw.result) ? raw.result : raw;
         bx = (b && typeof b.x==='number') ? b.x : 0;
         by = (b && typeof b.y==='number') ? b.y : 0;
         sx = e.screenX; sy = e.screenY;
-        await window.pluginAPI?.call('morning.reading','setOpenButtonDragging',[true]);
+        await window.pluginAPI?.call('morning-reading','setOpenButtonDragging',[true]);
       }catch (e) {}
     };
     const onMove = (e)=>{
@@ -39,14 +39,14 @@
         requestAnimationFrame(() => {
           rafScheduled = false;
           const x = nextX; const y = nextY;
-          try { window.pluginAPI?.call('morning.reading','moveOpenButtonTo',[x,y]); } catch (e) {}
+          try { window.pluginAPI?.call('morning-reading','moveOpenButtonTo',[x,y]); } catch (e) {}
         });
       }
     };
     const onUp = async (e)=>{
       try { btn.releasePointerCapture?.(e.pointerId); } catch (e) {}
       dragging=false; if (moved) { justDragged = true; setTimeout(()=>{ justDragged=false; }, 200); }
-      try{ await window.pluginAPI?.call('morning.reading','snapOpenButton',[]); await window.pluginAPI?.call('morning.reading','setOpenButtonDragging',[false]); }catch (e) {}
+      try{ await window.pluginAPI?.call('morning-reading','snapOpenButton',[]); await window.pluginAPI?.call('morning-reading','setOpenButtonDragging',[false]); }catch (e) {}
       try { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); } catch (e) {}
     };
     btn.addEventListener('pointerdown', (e)=>{ onDown(e); try { window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp, { once: true }); } catch (e) {} });

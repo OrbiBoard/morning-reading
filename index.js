@@ -1,6 +1,7 @@
 const path = require('path');
 const { BrowserWindow, app, screen } = require('electron');
 const store = require(path.join(app.getAppPath(), 'src', 'main', 'store.js'));
+const EVENT_CHANNEL = 'morning-reading-channel';
 
 let settingsWin = null;
 let pluginApi = null;
@@ -114,7 +115,7 @@ function handleMinuteTrigger(curHHMM) {
     log('enqueueBatch:size', payloads.length);
     if (payloads.length && pluginApi) {
       try {
-        Promise.resolve(pluginApi.call('notify.plugin', 'enqueueBatch', [payloads]))
+        Promise.resolve(pluginApi.call('notify-plugin', 'enqueueBatch', [payloads]))
           .then((res) => { try { log('notify:result', !!res?.ok, res?.error || null); } catch (e) {} })
           .catch((e) => { try { log('notify:error', e?.message || String(e)); } catch (e) {} });
       } catch (e) { try { log('notify:call:thrown', e?.message || String(e)); } catch (e) {} }
@@ -218,7 +219,7 @@ function isBoardPeriodActive() {
 }
 
 module.exports = {
-  name: '早读助手',
+  name: 'morning-reading',
   version: '1.0.0',
   // 插件无需运行窗口，仅提供设置与自动化计时器注册（在 init 内完成注册）
   init: (api) => {
@@ -304,7 +305,7 @@ module.exports = {
         const payloads = [];
         payloads.push({ mode: 'overlay.text', text: p.textStart || '站立早读开始', duration: 4000, animate: 'fade', speak: (p.speakStart === true ? true : false), which: (p.soundIn !== false ? 'in' : 'none') });
         if (!pluginApi) return { ok: false, error: 'plugin_api_unavailable' };
-        return await pluginApi.call('notify.plugin', 'enqueueBatch', [payloads]);
+        return await pluginApi.call('notify-plugin', 'enqueueBatch', [payloads]);
       } catch (e) { return { ok: false, error: e?.message || String(e) }; }
     },
     previewEnd: async (period) => {
@@ -313,7 +314,7 @@ module.exports = {
         const payloads = [];
         payloads.push({ mode: 'toast', title: p.textEnd || '站立早读结束', subText: (p.subTextEnd || '请坐下休息'), type: 'info', duration: 4000, speak: (p.speakEnd === true ? true : false), which: (p.soundOut !== false ? 'out' : 'none') });
         if (!pluginApi) return { ok: false, error: 'plugin_api_unavailable' };
-        return await pluginApi.call('notify.plugin', 'enqueueBatch', [payloads]);
+        return await pluginApi.call('notify-plugin', 'enqueueBatch', [payloads]);
       } catch (e) { return { ok: false, error: e?.message || String(e) }; }
     },
     getVariable: async (name) => { const k=String(name||''); if (k==='timeISO') return new Date().toISOString(); if (k==='pluginName') return '早读助手'; return ''; },
