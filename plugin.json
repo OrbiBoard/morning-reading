@@ -1,6 +1,6 @@
 {
   "id": "morning-reading",
-  "name": "早读助手",
+  "name": "早读提醒与看板",
   "icon": "ri-sun-foggy-line",
   "author": "OrbiBoard",
   "description": "站立早读提醒、早读看板等功能",
@@ -21,10 +21,23 @@
   "dependencies": [
     "notify-plugin@^1.0.0"
   ],
-  "version": "1.0.0"
-  ,"variables": ["timeISO","pluginName"]
-  ,"configSchema": {
-    "periods": { "type": "json", "label": "站立早读时段", "desc": "[{ name,start,end,weekdays,biweek,... }]", "default": [] },
-    "boardPeriods": { "type": "json", "label": "看板时段", "desc": "[{ name,start,end,weekdays,biweek,type }]", "default": [] }
+  "version": "1.0.0",
+  "variables": [
+    "timeISO",
+    "pluginName"
+  ],
+  "configSchema": {
+    "periods": {
+      "type": "json",
+      "label": "站立早读时段",
+      "desc": "[{ name,start,end,weekdays,biweek,... }]",
+      "default": []
+    },
+    "boardPeriods": {
+      "type": "json",
+      "label": "看板时段",
+      "desc": "[{ name,start,end,weekdays,biweek,type }]",
+      "default": []
+    }
   }
 }
