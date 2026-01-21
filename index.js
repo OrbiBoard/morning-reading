@@ -1,6 +1,6 @@
 const path = require('path');
 const { BrowserWindow, app, screen } = require('electron');
-const store = require(path.join(app.getAppPath(), 'src', 'main', 'store.js'));
+
 const EVENT_CHANNEL = 'morning-reading-channel';
 
 let settingsWin = null;
@@ -9,7 +9,7 @@ let boardWin = null;
 let buttonWin = null;
 let activeBoard = null;
 // 轻日志开关：跟随 system.debugLog 或 LP_DEBUG
-const log = (...args) => { try { const enabled = (store.get('system','debugLog') || process.env.LP_DEBUG); if (enabled) console.log('[MorningReading]', ...args); } catch (e) {} };
+const log = (...args) => { try { const enabled = (process.env.LP_DEBUG); if (enabled) console.log('[MorningReading]', ...args); } catch (e) {} };
 
 function openSettingsWindow() {
   if (settingsWin && !settingsWin.isDestroyed()) {
@@ -47,16 +47,17 @@ function computeTimesFromPeriods(periods) {
 
 function handleMinuteTrigger(curHHMM) {
   try {
+    if (!pluginApi) return;
     const d = new Date();
     const weekday = d.getDay() === 0 ? 7 : d.getDay(); // 1..7
-    const cfg = store.getAll('morning-reading') || {};
+    const cfg = pluginApi.store.getAll() || {};
     const periods = Array.isArray(cfg.periods) ? cfg.periods : [];
     const boardPeriods = Array.isArray(cfg.boardPeriods) ? cfg.boardPeriods : [];
     log('trigger', curHHMM, { weekday });
 
     // 读取单双周基准
-    const base = store.get('system', 'semesterStart') || store.get('system', 'offsetBaseDate');
-    const biweekOff = !!store.get('system', 'biweekOffset');
+    const base = null; // store.get('system', 'semesterStart') || store.get('system', 'offsetBaseDate');
+    const biweekOff = false; // !!store.get('system', 'biweekOffset');
     let isEvenWeek = null;
     if (base) {
       try {
@@ -183,12 +184,13 @@ function openOpenButton() {
 
 function isBoardPeriodActive() {
   try {
+    if (!pluginApi) return false;
     const now = new Date();
     const weekday = now.getDay() === 0 ? 7 : now.getDay();
-    const cfg = store.getAll('morning-reading') || {};
+    const cfg = pluginApi.store.getAll() || {};
     const boardPeriods = Array.isArray(cfg.boardPeriods) ? cfg.boardPeriods : [];
-    const base = store.get('system', 'semesterStart') || store.get('system', 'offsetBaseDate');
-    const biweekOff = !!store.get('system', 'biweekOffset');
+    const base = null; // store.get('system', 'semesterStart') || store.get('system', 'offsetBaseDate');
+    const biweekOff = false; // !!store.get('system', 'biweekOffset');
     let isEvenWeek = null;
     if (base) {
       try {
@@ -225,8 +227,17 @@ module.exports = {
   init: (api) => {
     pluginApi = api;
     try {
-      store.ensureDefaults('morning-reading', { periods: [], boardPeriods: [] });
-      const cfg = store.getAll('morning-reading') || {};
+      const defaults = { periods: [], boardPeriods: [] };
+      const cfg = api.store.getAll() || {};
+      let changed = false;
+      Object.keys(defaults).forEach(k => {
+        if (!(k in cfg)) {
+          cfg[k] = defaults[k];
+          changed = true;
+        }
+      });
+      if (changed) api.store.setAll(cfg);
+
       const times = Array.from(new Set([
         ...computeTimesFromPeriods(cfg.periods || []),
         ...computeTimesFromPeriods(cfg.boardPeriods || [])
@@ -241,7 +252,7 @@ module.exports = {
     setSchedule: (periods) => {
       try {
         if (!pluginApi) return { ok: false, error: 'plugin_api_unavailable' };
-        const cfg = store.getAll('morning-reading') || {};
+        const cfg = pluginApi.store.getAll() || {};
         const times = Array.from(new Set([
           ...computeTimesFromPeriods(Array.isArray(periods) ? periods : []),
           ...computeTimesFromPeriods(cfg.boardPeriods || [])
@@ -252,7 +263,7 @@ module.exports = {
     setBoardSchedule: (periods) => {
       try {
         if (!pluginApi) return { ok: false, error: 'plugin_api_unavailable' };
-        const cfg = store.getAll('morning-reading') || {};
+        const cfg = pluginApi.store.getAll() || {};
         const times = Array.from(new Set([
           ...computeTimesFromPeriods(cfg.periods || []),
           ...computeTimesFromPeriods(Array.isArray(periods) ? periods : [])

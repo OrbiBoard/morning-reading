@@ -1,11 +1,11 @@
-# morning-reading 插件
+# 早读提醒与看板 (morning-reading)
 
-该仓库包含 OrbiBoard 主程序的 morning-reading 插件源码。
+## 简介
+提供站立早读提醒与早读看板功能的插件。
 
-用法
-- 将本目录作为独立 Git 仓库管理。
-- 依赖请在 `plugin.json` 的 `npmDependencies` 或 `dependencies` 中声明，由主程序在运行时通过插件依赖管理安装。
+## 功能
+- **打开设置**: 配置早读时段与看板时段。
+- **打开早读看板**: 显示早读看板界面。
 
-开发
-- 页面入口：`index.html`、`board.html` 等
-- 后端入口：`index.js`
+## 依赖
+- notify-plugin
