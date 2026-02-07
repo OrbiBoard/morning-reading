@@ -18,6 +18,12 @@ contextBridge.exposeInMainWorld('pluginAPI', {
   configGet: (scope, key) => ipcRenderer.invoke('config:get', scope, key),
   configSet: (scope, key, value) => ipcRenderer.invoke('config:set', scope, key, value),
   configEnsureDefaults: (scope, defaults) => ipcRenderer.invoke('config:ensureDefaults', scope, defaults),
+  // 监听配置更改
+  onConfigChanged: (handler) => {
+    const listener = (_e, payload) => handler && handler(payload);
+    ipcRenderer.on('sys:config-changed', listener);
+    return () => ipcRenderer.removeListener('sys:config-changed', listener);
+  },
   getCurrentTime: () => ipcRenderer.invoke('system:getTime'),
   asset: (relPath) => ipcRenderer.invoke('asset:url', relPath),
   ui: {

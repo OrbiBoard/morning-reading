@@ -6,15 +6,116 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>打开早读看板</title>
   <style>
+    /* 核心变量定义，与主程序保持一致 */
+    :root {
+      --bg: #121621;
+      --fg: #ededed;
+      --muted: #94a3b8;
+      --accent: #238f4a;
+      --panel: rgba(255, 255, 255, 0.04);
+      --item-bg: rgba(255, 255, 255, 0.04);
+      --border: rgba(255, 255, 255, 0.12);
+      --accent-rgb: 35, 143, 74;
+    }
+
     html,body{margin:0;background:transparent !important}
-    .btn{display:inline-flex;align-items:center;height:56px;padding:0 16px;border:1px solid rgba(255,255,255,0.28);border-radius:999px;background:rgba(20,28,40,0.60);color:#e6f0ff;font-weight:600;cursor:pointer;font-size:14px;gap:8px}
-    .btn i{font-size:18px}
+    
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      height:56px;
+      padding:0 20px;
+      border:1px solid var(--border);
+      border-radius:999px;
+      background: var(--bg); /* 使用不透明背景，或者深色半透明 */
+      color: var(--fg);
+      font-weight:600;
+      cursor:pointer;
+      font-size:14px;
+      gap:8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      transition: all 0.2s;
+    }
+    
+    .btn i{
+      font-size:20px;
+      color: var(--accent);
+    }
+    
+    .btn:hover {
+      background: var(--panel);
+      transform: scale(1.02);
+      border-color: var(--accent);
+    }
+    
+    .btn:active {
+      transform: scale(0.98);
+    }
   </style>
 </head>
 <body>
     <button class="btn" id="btn-open"><i class="ri-dashboard-2-line"></i> 打开早读看板</button>
   <script>
     window.pluginAPI?.ui.ensureStyles();
+    
+    // 注入主题逻辑
+    window.applyTheme = (mode, color) => {
+      const root = document.documentElement;
+      const isDark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      
+      const accent = color || '#238f4a';
+      root.style.setProperty('--accent', accent);
+      
+      const hex = accent.replace('#', '');
+      const r = parseInt(hex.substring(0, 2), 16);
+      const g = parseInt(hex.substring(2, 4), 16);
+      const b = parseInt(hex.substring(4, 6), 16);
+      root.style.setProperty('--accent-rgb', `${r}, ${g}, ${b}`);
+      
+      if (isDark) {
+        root.style.setProperty('--bg', '#121621'); // 按钮背景深色
+        root.style.setProperty('--fg', '#ededed');
+        root.style.setProperty('--panel', 'rgba(255, 255, 255, 0.08)');
+        root.style.setProperty('--border', 'rgba(255, 255, 255, 0.12)');
+      } else {
+        root.style.setProperty('--bg', '#ffffff'); // 按钮背景浅色
+        root.style.setProperty('--fg', '#1f2937');
+        root.style.setProperty('--panel', '#f3f4f6');
+        root.style.setProperty('--border', '#e5e7eb');
+      }
+    };
+
+    (async () => {
+      try {
+        const sysCfg = await window.pluginAPI?.configGet?.('system'); // 某些旧版API可能只支持configGet('system')或configGetAll
+        // 这里尝试获取系统配置，如果不直接支持，可以使用 configGetAll('system')
+        const cfg = await window.pluginAPI?.configGetAll?.('system') || {};
+        let mode = cfg.themeMode || 'system';
+        let color = cfg.themeColor || '#238f4a';
+        window.applyTheme(mode, color);
+        
+        // 监听配置变更
+        if (window.pluginAPI?.onConfigChanged) {
+          window.pluginAPI.onConfigChanged(({ scope, key, value }) => {
+            if (scope === 'system') {
+              if (key === 'themeMode') {
+                mode = value;
+                window.applyTheme(mode, color);
+              }
+              if (key === 'themeColor') {
+                color = value;
+                window.applyTheme(mode, color);
+              }
+            }
+          });
+        }
+
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+          if (mode === 'system') window.applyTheme('system', color);
+        });
+      } catch (e) { console.error('Theme init failed', e); }
+    })();
+
     const btn = document.getElementById('btn-open');
     let dragging = false; let sx=0, sy=0; let bx=0, by=0; let moved=false; let justDragged=false; let rafScheduled = false; let nextX = 0, nextY = 0;
     btn.addEventListener('click',async(e)=>{ if (dragging || moved || justDragged) return; try{ await window.pluginAPI?.call('morning-reading','openBoard',[]); window.pluginAPI?.windowControl('close'); }catch (e) {} });

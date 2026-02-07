@@ -10,6 +10,26 @@
   <link rel="stylesheet" href="../../renderer/remixicon-local.css" />
   <link rel="stylesheet" href="../../renderer/settings.css" />
   <style>
+    /* 核心变量定义，与主程序保持一致 */
+    :root {
+      --bg: #121621;
+      --fg: #ededed;
+      --muted: #94a3b8;
+      --accent: #238f4a;
+      --panel: rgba(255, 255, 255, 0.04);
+      --item-bg: rgba(255, 255, 255, 0.04);
+      --border: rgba(255, 255, 255, 0.12);
+      --accent-rgb: 35, 143, 74;
+      --bg-modal: #1b1f2a;
+      --btn-secondary-bg: rgba(255, 255, 255, 0.06);
+    }
+
+    body {
+      background: var(--bg-modal);
+      color: var(--fg);
+      transition: background 0.3s, color 0.3s;
+    }
+
     /* 采用设置页内置控件，保留少量布局 */
     .tabs {
       display: flex;
@@ -22,10 +42,19 @@
       padding: 6px 10px;
       border-radius: 6px;
       cursor: pointer;
+      color: var(--muted);
+      transition: all 0.2s;
+    }
+    
+    .tab:hover {
+      background: var(--item-bg);
+      color: var(--fg);
     }
 
     .tab.active {
-      background: rgba(34, 197, 94, 0.18);
+      background: rgba(var(--accent-rgb), 0.15);
+      color: var(--accent);
+      font-weight: 600;
     }
 
     .page {
@@ -47,9 +76,26 @@
       gap: 6px;
       flex-wrap: wrap;
     }
+    
+    .chip {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .chip:hover {
+      background: var(--item-bg);
+      color: var(--fg);
+    }
 
     .chip.active {
-      background: rgba(34, 197, 94, 0.18);
+      background: rgba(var(--accent-rgb), 0.15);
+      border-color: rgba(var(--accent-rgb), 0.45);
+      color: var(--fg);
     }
 
     #period-list .setting-item {
@@ -68,40 +114,46 @@
 
     .main {
       padding: 16px;
-      height: calc(100vh - 165px);
+      height: calc(100vh - 85px); /* 减去标题栏和tabs高度 */
+      box-sizing: border-box;
     }
 
     .form,
-    #period-list {
-      max-height: calc(100vh - 265px);
+    #period-list,
+    #board-period-list {
+      max-height: calc(100vh - 180px);
       overflow-y: auto;
     }
 
+    /* 滚动条统一使用 CSS 变量 */
     .form::-webkit-scrollbar,
-    #period-list::-webkit-scrollbar {
-      width: 10px;
+    #period-list::-webkit-scrollbar,
+    #board-period-list::-webkit-scrollbar {
+      width: 8px;
     }
 
     .form::-webkit-scrollbar-track,
-    #period-list::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.04);
-      border-left: 1px solid var(--border);
+    #period-list::-webkit-scrollbar-track,
+    #board-period-list::-webkit-scrollbar-track {
+      background: transparent;
     }
 
     .form::-webkit-scrollbar-thumb,
-    #period-list::-webkit-scrollbar-thumb {
-      background: rgba(64, 75, 88, 0.685);
-      border: 1px solid rgba(72, 87, 107, 0.45);
-      border-radius: 999px;
+    #period-list::-webkit-scrollbar-thumb,
+    #board-period-list::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
     }
 
     .form::-webkit-scrollbar-thumb:hover,
-    #period-list::-webkit-scrollbar-thumb:hover {
-      background: rgba(69, 83, 90, 0.5);
+    #period-list::-webkit-scrollbar-thumb:hover,
+    #board-period-list::-webkit-scrollbar-thumb:hover {
+      background: var(--muted);
     }
 
     .wrap {
       overflow-y: hidden;
+      height: calc(100vh - 34px);
     }
     #board-period-list .setting-item { display:block; margin-bottom:10px; }
     #board-period-list .setting-icon { margin-left:0px; margin-bottom:5px; }
@@ -404,7 +456,71 @@
     let boardPeriods = [];
     let currentIndex = null; // 当前正在编辑的条目索引（未选择为 null）
     let currentBoardIndex = null;
+    
+    // 注入主题逻辑
+    window.applyTheme = (mode, color) => {
+      const root = document.documentElement;
+      const isDark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      
+      const accent = color || '#238f4a';
+      root.style.setProperty('--accent', accent);
+      
+      const hex = accent.replace('#', '');
+      const r = parseInt(hex.substring(0, 2), 16);
+      const g = parseInt(hex.substring(2, 4), 16);
+      const b = parseInt(hex.substring(4, 6), 16);
+      root.style.setProperty('--accent-rgb', `${r}, ${g}, ${b}`);
+      
+      if (isDark) {
+        root.style.setProperty('--bg', '#121621');
+        root.style.setProperty('--fg', '#ededed');
+        root.style.setProperty('--muted', '#94a3b8');
+        root.style.setProperty('--panel', 'rgba(255, 255, 255, 0.04)');
+        root.style.setProperty('--item-bg', 'rgba(255, 255, 255, 0.04)');
+        root.style.setProperty('--border', 'rgba(255, 255, 255, 0.12)');
+        root.style.setProperty('--bg-modal', '#1b1f2a');
+        root.style.setProperty('--btn-secondary-bg', 'rgba(255, 255, 255, 0.06)');
+      } else {
+        root.style.setProperty('--bg', '#f3f4f6');
+        root.style.setProperty('--fg', '#1f2937');
+        root.style.setProperty('--muted', '#6b7280');
+        root.style.setProperty('--panel', '#ffffff');
+        root.style.setProperty('--item-bg', '#f9fafb');
+        root.style.setProperty('--border', '#e5e7eb');
+        root.style.setProperty('--bg-modal', '#ffffff');
+        root.style.setProperty('--btn-secondary-bg', 'rgba(0, 0, 0, 0.05)');
+      }
+    };
+
     async function init() {
+      // 初始化主题
+      try {
+        const sysCfg = await window.settingsAPI?.configGetAll('system');
+        let mode = sysCfg?.themeMode || 'system';
+        let color = sysCfg?.themeColor || '#238f4a';
+        window.applyTheme(mode, color);
+        
+        // 监听配置变更
+        if (window.settingsAPI?.onConfigChanged) {
+          window.settingsAPI.onConfigChanged(({ scope, key, value }) => {
+            if (scope === 'system') {
+              if (key === 'themeMode') {
+                mode = value;
+                window.applyTheme(mode, color);
+              }
+              if (key === 'themeColor') {
+                color = value;
+                window.applyTheme(mode, color);
+              }
+            }
+          });
+        }
+
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+          if (mode === 'system') window.applyTheme('system', color);
+        });
+      } catch (e) { console.error('Theme init failed', e); }
+
       await window.settingsAPI?.configEnsureDefaults('morning-reading', { periods: [], boardPeriods: [] });
       const cfg = await window.settingsAPI?.configGetAll('morning-reading');
       periods = Array.isArray(cfg?.periods) ? cfg.periods : [];
