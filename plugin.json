@@ -4,6 +4,7 @@
   "icon": "ri-sun-foggy-line",
   "author": "OrbiBoard",
   "description": "站立早读提醒、早读看板等功能",
+  "permissions": ["automation"],
   "actions": [
     {
       "id": "openSettings",

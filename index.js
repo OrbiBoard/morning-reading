@@ -8,7 +8,8 @@ let pluginApi = null;
 let boardWin = null;
 let buttonWin = null;
 let activeBoard = null;
-// 轻日志开关：跟随 system.debugLog 或 LP_DEBUG
+let toplayerApi = null;
+const WIDGET_ID = 'morning-reading-board';
 const log = (...args) => { try { const enabled = (process.env.LP_DEBUG); if (enabled) console.log('[MorningReading]', ...args); } catch (e) {} };
 
 function openSettingsWindow() {
@@ -49,15 +50,14 @@ function handleMinuteTrigger(curHHMM) {
   try {
     if (!pluginApi) return;
     const d = new Date();
-    const weekday = d.getDay() === 0 ? 7 : d.getDay(); // 1..7
+    const weekday = d.getDay() === 0 ? 7 : d.getDay();
     const cfg = pluginApi.store.getAll() || {};
     const periods = Array.isArray(cfg.periods) ? cfg.periods : [];
     const boardPeriods = Array.isArray(cfg.boardPeriods) ? cfg.boardPeriods : [];
     log('trigger', curHHMM, { weekday });
 
-    // 读取单双周基准
-    const base = null; // store.get('system', 'semesterStart') || store.get('system', 'offsetBaseDate');
-    const biweekOff = false; // !!store.get('system', 'biweekOffset');
+    const base = pluginApi.store.get('system', 'semesterStart') || pluginApi.store.get('system', 'offsetBaseDate');
+    const biweekOff = !!pluginApi.store.get('system', 'biweekOffset');
     let isEvenWeek = null;
     if (base) {
       try {
@@ -110,7 +110,7 @@ function handleMinuteTrigger(curHHMM) {
         try { openBoardWindow(p); } catch (e) {}
       }
       if (end === curHHMM) {
-        try { if (buttonWin && !buttonWin.isDestroyed()) { buttonWin.close(); buttonWin = null; } } catch (e) {}
+        try { closeBoardWidget(); } catch (e) {}
       }
     }
     log('enqueueBatch:size', payloads.length);
@@ -124,11 +124,15 @@ function handleMinuteTrigger(curHHMM) {
   } catch (e) {}
 }
 
-function openBoardWindow(period) {
+async function openBoardWindow(period) {
   try {
     const p = (period && typeof period === 'object') ? period : null;
     activeBoard = p;
-    if (boardWin && !boardWin.isDestroyed()) { boardWin.focus(); return boardWin; }
+    
+    // Close any existing board widget in toplayer
+    closeBoardWidget();
+    
+    // Create independent window for the board
     const d = screen.getPrimaryDisplay();
     const b = d.bounds;
     const win = new BrowserWindow({
@@ -155,15 +159,28 @@ function openBoardWindow(period) {
   } catch (e) { return null; }
 }
 
-function openOpenButton() {
+async function showBoardWidget() {
+  // This function is no longer used for the main board
+  // The board is now shown in an independent window
+}
+
+function closeBoardWidget() {
+  if (toplayerApi && toplayerApi.removeWidget) {
+    toplayerApi.removeWidget(WIDGET_ID);
+  }
+}
+
+async function openOpenButton() {
   try {
     if (buttonWin && !buttonWin.isDestroyed()) return buttonWin;
+    
+    // Create independent always-on-top window for the open button
     const d = screen.getPrimaryDisplay();
     const b = d.bounds;
     const w = 140, h = 56;
     const win = new BrowserWindow({
       x: b.x + Math.floor((b.width - w) / 2),
-      y: b.y + b.height - h - 56,
+      y: b.y + b.height - h - 100,
       width: w,
       height: h,
       frame: false,
@@ -192,6 +209,14 @@ function openOpenButton() {
   } catch (e) { return null; }
 }
 
+async function showOpenButtonWidget() {
+  // Not used - using independent window instead
+}
+
+function closeOpenButtonWidget() {
+  // Not used - using independent window instead
+}
+
 function isBoardPeriodActive() {
   try {
     if (!pluginApi) return false;
@@ -199,8 +224,8 @@ function isBoardPeriodActive() {
     const weekday = now.getDay() === 0 ? 7 : now.getDay();
     const cfg = pluginApi.store.getAll() || {};
     const boardPeriods = Array.isArray(cfg.boardPeriods) ? cfg.boardPeriods : [];
-    const base = null; // store.get('system', 'semesterStart') || store.get('system', 'offsetBaseDate');
-    const biweekOff = false; // !!store.get('system', 'biweekOffset');
+    const base = pluginApi.store.get('system', 'semesterStart') || pluginApi.store.get('system', 'offsetBaseDate');
+    const biweekOff = !!pluginApi.store.get('system', 'biweekOffset');
     let isEvenWeek = null;
     if (base) {
       try {
@@ -233,7 +258,6 @@ function isBoardPeriodActive() {
 module.exports = {
   name: 'morning-reading',
   version: '1.0.0',
-  // 插件无需运行窗口，仅提供设置与自动化计时器注册（在 init 内完成注册）
   init: (api) => {
     pluginApi = api;
     try {
@@ -248,20 +272,39 @@ module.exports = {
       });
       if (changed) api.store.setAll(cfg);
 
-      const times = Array.from(new Set([
-        ...computeTimesFromPeriods(cfg.periods || []),
-        ...computeTimesFromPeriods(cfg.boardPeriods || [])
-      ]));
-      pluginApi.automation.registerMinuteTriggers(times, handleMinuteTrigger);
+      if (api.automation) {
+        const times = Array.from(new Set([
+          ...computeTimesFromPeriods(cfg.periods || []),
+          ...computeTimesFromPeriods(cfg.boardPeriods || [])
+        ]));
+        api.automation.registerMinuteTriggers(times, handleMinuteTrigger);
+      }
+      
+      if (pluginApi.call) {
+        pluginApi.call('service-toplayer', 'isRunning', []).then(running => {
+          if (running) {
+            toplayerApi = {
+              isRunning: () => running,
+              addWidget: (opts) => pluginApi.call('service-toplayer', 'addWidget', [opts]),
+              removeWidget: (id) => pluginApi.call('service-toplayer', 'removeWidget', [id]),
+              updateWidget: (id, bounds) => pluginApi.call('service-toplayer', 'updateWidget', [id, bounds]),
+              startDrag: (id) => pluginApi.call('service-toplayer', 'startDrag', [id]),
+              endDrag: (id, x, y) => pluginApi.call('service-toplayer', 'endDrag', [{ id, x, y }]),
+              forceToFront: () => pluginApi.call('service-toplayer', 'forceToFront', [])
+            };
+          }
+        }).catch(() => {});
+      }
+      
       if (isBoardPeriodActive()) openBoardWindow(null);
     } catch (e) {}
   },
   functions: {
     openSettings: () => { openSettingsWindow(); return true; },
-    // 由设置页保存时调用：根据传入的时段重新注册分钟触发器
     setSchedule: (periods) => {
       try {
         if (!pluginApi) return { ok: false, error: 'plugin_api_unavailable' };
+        if (!pluginApi.automation) return { ok: false, error: 'automation_api_unavailable' };
         const cfg = pluginApi.store.getAll() || {};
         const times = Array.from(new Set([
           ...computeTimesFromPeriods(Array.isArray(periods) ? periods : []),
@@ -273,6 +316,7 @@ module.exports = {
     setBoardSchedule: (periods) => {
       try {
         if (!pluginApi) return { ok: false, error: 'plugin_api_unavailable' };
+        if (!pluginApi.automation) return { ok: false, error: 'automation_api_unavailable' };
         const cfg = pluginApi.store.getAll() || {};
         const times = Array.from(new Set([
           ...computeTimesFromPeriods(cfg.periods || []),
@@ -282,14 +326,27 @@ module.exports = {
       } catch (e) { return { ok: false, error: e?.message || String(e) }; }
     },
     clearSchedule: () => {
-      try { if (!pluginApi) return { ok: false, error: 'plugin_api_unavailable' }; return pluginApi.automation.clearMinuteTriggers(); } catch (e) { return { ok: false, error: e?.message || String(e) }; }
+      try { 
+        if (!pluginApi) return { ok: false, error: 'plugin_api_unavailable' };
+        if (!pluginApi.automation) return { ok: false, error: 'automation_api_unavailable' };
+        return pluginApi.automation.clearMinuteTriggers(); 
+      } catch (e) { return { ok: false, error: e?.message || String(e) }; }
     },
-    // 调试：查看当前注册的分钟触发器列表
     listScheduleTimes: () => {
-      try { if (!pluginApi) return { ok: true, times: [] }; return pluginApi.automation.listMinuteTriggers(); } catch (e) { return { ok: false, error: e?.message || String(e) }; }
+      try { 
+        if (!pluginApi) return { ok: true, times: [] };
+        if (!pluginApi.automation) return { ok: true, times: [] };
+        return pluginApi.automation.listMinuteTriggers(); 
+      } catch (e) { return { ok: false, error: e?.message || String(e) }; }
     },
     openBoard: () => { try { openBoardWindow(null); return true; } catch (e) { return { ok: false, error: e?.message || String(e) }; } },
-    closeBoard: () => { try { if (boardWin && !boardWin.isDestroyed()) boardWin.close(); return true; } catch (e) { return { ok: false, error: e?.message || String(e) }; } },
+    closeBoard: () => { 
+      try { 
+        if (buttonWin && !buttonWin.isDestroyed()) buttonWin.close();
+        if (boardWin && !boardWin.isDestroyed()) boardWin.close();
+        return true; 
+      } catch (e) { return { ok: false, error: e?.message || String(e) }; } 
+    },
     ensureOpenButton: () => { try { if (isBoardPeriodActive()) openOpenButton(); return true; } catch (e) { return { ok: false, error: e?.message || String(e) }; } },
     setOpenButtonDragging: (flag) => { try { return !!flag; } catch (e) { return false; } },
     getOpenButtonBounds: () => { try { if (!buttonWin || buttonWin.isDestroyed()) return null; return buttonWin.getBounds(); } catch (e) { return null; } },
