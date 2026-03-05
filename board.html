@@ -5,10 +5,8 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>早读看板</title>
-  <!-- 引入本地图标库 -->
   <link rel="stylesheet" href="../../OrbiBoard/src/renderer/remixicon-local.css" />
   <style>
-    /* 核心变量定义，与主程序保持一致 */
     :root {
       --bg: #121621;
       --fg: #ededed;
@@ -61,7 +59,6 @@
       overflow-y: auto;
     }
 
-    /* 左侧时间区域 */
     .time-box {
       background: var(--item-bg);
       border: 1px solid var(--border);
@@ -96,7 +93,6 @@
       border-radius: 999px;
     }
 
-    /* 按钮样式优化 */
     .btn {
       display: inline-flex;
       align-items: center;
@@ -126,7 +122,6 @@
       filter: brightness(1.1);
     }
 
-    /* 右侧卡片优化 */
     .quote-card {
       background: var(--item-bg);
       border: 1px solid var(--border);
@@ -190,16 +185,18 @@
       border: 1px solid var(--border);
       background: var(--item-bg);
       position: relative;
+      min-height: 200px;
     }
 
     #annotate-frame {
+      position: absolute;
+      top: 0;
+      left: 0;
       width: 100%;
       height: 100%;
       border: none;
-      display: block;
     }
 
-    /* 滚动条美化 */
     ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
@@ -209,7 +206,6 @@
 <body>
   <div class="wrap">
     <div class="grid">
-      <!-- 左侧：时间与白板 -->
       <div class="panel left">
         <div class="time-box">
           <div class="time" id="t-time">--:--</div>
@@ -218,7 +214,7 @@
         </div>
         
         <div class="annotate-box">
-          <iframe id="annotate-frame" src="../annotate-fabric/whiteboard.html?showClose=0&showMinimize=0&showSave=1&variant=overlay&persistKey=morning-reading-board"></iframe>
+          <webview id="annotate-frame" src="../screen-annotate/index.html?mode=whiteboard&variant=embed&persistKey=morning-reading-board" nodeintegration="true" webpreferences="contextIsolation=false"></webview>
         </div>
 
         <div style="margin-top: 16px; display: flex; justify-content: center;">
@@ -228,7 +224,6 @@
         </div>
       </div>
 
-      <!-- 右侧：内容卡片 -->
       <div class="panel right">
         <div style="display: flex; justify-content: flex-end; margin-bottom: 16px;">
           <button class="btn" id="btn-refresh"><i class="ri-refresh-line"></i> 刷新内容</button>
@@ -274,7 +269,8 @@
   </div>
 
   <script>
-    // 注入主题逻辑
+    const { ipcRenderer } = require('electron');
+
     const adjustBrightness = (hex, percent) => {
       const num = parseInt(hex.replace('#', ''), 16);
       const amt = Math.round(2.55 * percent);
@@ -319,47 +315,52 @@
       }
     };
 
-    // 初始化主题
+    async function configGetAll(scope) {
+      return await ipcRenderer.invoke('config:getAll', scope);
+    }
+
+    async function configGet(scope, key) {
+      return await ipcRenderer.invoke('config:get', scope, key);
+    }
+
+    async function getCurrentTime() {
+      return await ipcRenderer.invoke('system:getTime');
+    }
+
     (async () => {
       try {
-        const cfg = await window.pluginAPI?.configGetAll('system');
+        const cfg = await configGetAll('system');
         let mode = cfg?.themeMode || 'system';
         let color = cfg?.themeColor || '#238f4a';
         window.applyTheme(mode, color);
-        
-        // 监听配置变更
-        if (window.pluginAPI?.onConfigChanged) {
-          window.pluginAPI.onConfigChanged(({ scope, key, value }) => {
-            if (scope === 'system') {
-              if (key === 'themeMode') {
-                mode = value;
-                window.applyTheme(mode, color);
-              }
-              if (key === 'themeColor') {
-                color = value;
-                window.applyTheme(mode, color);
-              }
-            }
-          });
-        }
 
-        // 监听系统深色模式变化
+        ipcRenderer.on('sys:config-changed', (_e, payload) => {
+          if (payload?.scope === 'system') {
+            if (payload?.key === 'themeMode') {
+              mode = payload.value;
+              window.applyTheme(mode, color);
+            }
+            if (payload?.key === 'themeColor') {
+              color = payload.value;
+              window.applyTheme(mode, color);
+            }
+          }
+        });
+
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
           if (mode === 'system') window.applyTheme('system', color);
         });
       } catch (e) { console.error('Theme init failed', e); }
     })();
 
-    // 原有业务逻辑
     const $ = (s) => document.querySelector(s);
-    window.pluginAPI?.ui.ensureStyles();
-    $('#btn-exit').addEventListener('click',()=>window.pluginAPI?.windowControl('close'));
+    $('#btn-exit').addEventListener('click', () => ipcRenderer.invoke('window:control', 'close'));
 
     async function tick(){
-      const t = await window.pluginAPI?.getCurrentTime();
+      const t = await getCurrentTime();
       const d = new Date(Number(t?.nowMs || Date.now()));
       let tz = 'Asia/Shanghai';
-      try { const v = await window.pluginAPI?.configGet?.('system','timeZone'); if (v) tz = String(v); } catch (e) {}
+      try { const v = await configGet('system','timeZone'); if (v) tz = String(v); } catch (e) {}
       
       let parts = null;
       try { 
@@ -385,7 +386,7 @@
       const days = Number(t?.daysFromBase || 0);
       const weekIdx = Math.floor(days/7)+1;
       let even = Math.floor(days/7)%2===0;
-      const off = await window.pluginAPI?.configGet('system','biweekOffset');
+      const off = await configGet('system','biweekOffset');
       if (off) even = !even;
       const tag = even? '双周':'单周';
       $('#t-meta').textContent = `第 ${weekIdx} 周 · ${tag} · 已开学 ${days} 天`;
@@ -395,13 +396,13 @@
     function startClock(){ if (timer) clearInterval(timer); tick(); timer = setInterval(tick, 500); }
     
     async function getActiveMode(){
-      const cfg = await window.pluginAPI?.configGetAll('morning-reading');
+      const cfg = await configGetAll('morning-reading');
       const list = Array.isArray(cfg?.boardPeriods)?cfg.boardPeriods:[];
       const now = new Date();
       const w = now.getDay()===0?7:now.getDay();
       
-      const base = await window.pluginAPI?.configGet('system','semesterStart') || await window.pluginAPI?.configGet('system','offsetBaseDate');
-      const off = await window.pluginAPI?.configGet('system','biweekOffset');
+      const base = await configGet('system','semesterStart') || await configGet('system','offsetBaseDate');
+      const off = await configGet('system','biweekOffset');
       
       let even = null;
       if (base){ 
@@ -496,6 +497,60 @@
     function setCache(key,data){ try{ localStorage.setItem('mr.cache.'+key, JSON.stringify({ ts: Date.now(), data })); }catch (e) {} }
     
     $('#btn-refresh').addEventListener('click', ()=>fetchQuote(true));
+    
+    const PERSIST_KEY = 'morning-reading-board';
+    
+    function loadPersistedStrokes() {
+        try {
+            const raw = localStorage.getItem('mr.annotate.' + PERSIST_KEY);
+            if (raw) {
+                const data = JSON.parse(raw);
+                const webview = document.getElementById('annotate-frame');
+                if (webview) {
+                    webview.executeJavaScript(`
+                        window.postMessage({
+                            type: 'annotate-load-response',
+                            key: '${PERSIST_KEY}',
+                            data: ${JSON.stringify(data)}
+                        }, '*');
+                    `).catch(() => {});
+                }
+            }
+        } catch (e) {
+            console.error('Failed to load persisted strokes:', e);
+        }
+    }
+    
+    const webviewEl = document.getElementById('annotate-frame');
+    if (webviewEl) {
+        webviewEl.addEventListener('dom-ready', () => {
+            setTimeout(() => {
+                webviewEl.executeJavaScript(`
+                    window.dispatchEvent(new Event('resize'));
+                `).catch(() => {});
+            }, 100);
+            setTimeout(loadPersistedStrokes, 200);
+        });
+        
+        webviewEl.addEventListener('ipc-message', (event) => {
+            if (event.channel === 'annotate-persist') {
+                const msg = event.args[0];
+                if (msg && msg.key === PERSIST_KEY) {
+                    try {
+                        localStorage.setItem('mr.annotate.' + PERSIST_KEY, JSON.stringify(msg.data));
+                    } catch (e) {
+                        console.error('Failed to persist strokes:', e);
+                    }
+                }
+            }
+            if (event.channel === 'annotate-load') {
+                const msg = event.args[0];
+                if (msg && msg.key === PERSIST_KEY) {
+                    loadPersistedStrokes();
+                }
+            }
+        });
+    }
     
     startClock();
     fetchQuote();

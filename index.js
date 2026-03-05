@@ -141,7 +141,12 @@ function openBoardWindow(period) {
       show: true,
       resizable: true,
       fullscreen: true,
-      webPreferences: { nodeIntegration: false, contextIsolation: true, preload: path.join(__dirname, 'preload.js') }
+      webPreferences: { 
+        nodeIntegration: true, 
+        contextIsolation: false, 
+        webSecurity: false,
+        webviewTag: true
+      }
     });
     boardWin = win;
     win.loadFile(path.join(__dirname, 'board.html'));
@@ -173,7 +178,12 @@ function openOpenButton() {
       skipTaskbar: true,
       alwaysOnTop: true,
       hasShadow: false,
-      webPreferences: { nodeIntegration: false, contextIsolation: true, preload: path.join(__dirname, 'preload.js') }
+      webPreferences: { 
+        nodeIntegration: true, 
+        contextIsolation: false, 
+        webSecurity: false,
+        preload: path.join(__dirname, 'preload.js') 
+      }
     });
     buttonWin = win;
     win.loadFile(path.join(__dirname, 'open-button.html'));
