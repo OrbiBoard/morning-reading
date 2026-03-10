@@ -172,12 +172,49 @@ function closeBoardWidget() {
 
 async function openOpenButton() {
   try {
-    if (buttonWin && !buttonWin.isDestroyed()) return buttonWin;
+    if (!toplayerApi || !toplayerApi.isRunning()) {
+      log('toplayer not available, falling back to independent window');
+      return openOpenButtonFallback();
+    }
     
-    // Create independent always-on-top window for the open button
     const d = screen.getPrimaryDisplay();
     const b = d.bounds;
-    const w = 140, h = 56;
+    const w = 160, h = 56;
+    const x = b.x + Math.floor((b.width - w) / 2);
+    const y = b.y + b.height - h - 100;
+    
+    const buttonUrl = require('url').format({
+      pathname: path.join(__dirname, 'open-button.html'),
+      protocol: 'file:',
+      slashes: true
+    });
+    
+    const result = toplayerApi.addWidget({
+      id: 'morning-reading-open-button',
+      x: x,
+      y: y,
+      width: w,
+      height: h,
+      url: buttonUrl,
+      nodeIntegration: true,
+      preload: path.join(__dirname, 'preload.js')
+    });
+    
+    log('addWidget result:', result);
+    return result;
+  } catch (e) { 
+    log('openOpenButton error:', e);
+    return openOpenButtonFallback();
+  }
+}
+
+async function openOpenButtonFallback() {
+  try {
+    if (buttonWin && !buttonWin.isDestroyed()) return buttonWin;
+    
+    const d = screen.getPrimaryDisplay();
+    const b = d.bounds;
+    const w = 160, h = 56;
     const win = new BrowserWindow({
       x: b.x + Math.floor((b.width - w) / 2),
       y: b.y + b.height - h - 100,
@@ -214,7 +251,14 @@ async function showOpenButtonWidget() {
 }
 
 function closeOpenButtonWidget() {
-  // Not used - using independent window instead
+  try {
+    if (toplayerApi && toplayerApi.isRunning()) {
+      toplayerApi.removeWidget('morning-reading-open-button');
+    }
+    if (buttonWin && !buttonWin.isDestroyed()) {
+      buttonWin.close();
+    }
+  } catch (e) {}
 }
 
 function isBoardPeriodActive() {
@@ -290,7 +334,8 @@ module.exports = {
               updateWidget: (id, bounds) => pluginApi.call('service-toplayer', 'updateWidget', [id, bounds]),
               startDrag: (id) => pluginApi.call('service-toplayer', 'startDrag', [id]),
               endDrag: (id, x, y) => pluginApi.call('service-toplayer', 'endDrag', [{ id, x, y }]),
-              forceToFront: () => pluginApi.call('service-toplayer', 'forceToFront', [])
+              forceToFront: () => pluginApi.call('service-toplayer', 'forceToFront', []),
+              getWidget: (id) => pluginApi.call('service-toplayer', 'getWidget', [id])
             };
           }
         }).catch(() => {});
@@ -348,10 +393,34 @@ module.exports = {
       } catch (e) { return { ok: false, error: e?.message || String(e) }; } 
     },
     ensureOpenButton: () => { try { if (isBoardPeriodActive()) openOpenButton(); return true; } catch (e) { return { ok: false, error: e?.message || String(e) }; } },
-    setOpenButtonDragging: (flag) => { try { return !!flag; } catch (e) { return false; } },
-    getOpenButtonBounds: () => { try { if (!buttonWin || buttonWin.isDestroyed()) return null; return buttonWin.getBounds(); } catch (e) { return null; } },
+    setOpenButtonDragging: (flag) => { 
+      try { 
+        if (toplayerApi && toplayerApi.isRunning()) {
+          if (flag) {
+            toplayerApi.startDrag('morning-reading-open-button');
+          }
+        }
+        return !!flag; 
+      } catch (e) { return false; } 
+    },
+    getOpenButtonBounds: () => { 
+      try { 
+        if (toplayerApi && toplayerApi.isRunning()) {
+          const widget = toplayerApi.getWidget && toplayerApi.getWidget('morning-reading-open-button');
+          if (widget && widget.bounds) {
+            return { x: widget.bounds.x, y: widget.bounds.y, width: widget.bounds.width, height: widget.bounds.height };
+          }
+        }
+        if (!buttonWin || buttonWin.isDestroyed()) return null; 
+        return buttonWin.getBounds(); 
+      } catch (e) { return null; } 
+    },
     moveOpenButtonTo: (x, y) => {
       try {
+        if (toplayerApi && toplayerApi.isRunning()) {
+          toplayerApi.updateWidget('morning-reading-open-button', { x, y });
+          return true;
+        }
         if (!buttonWin || buttonWin.isDestroyed()) return false;
         const d = screen.getPrimaryDisplay();
         const sb = d.bounds; const wb = buttonWin.getBounds();
@@ -363,17 +432,33 @@ module.exports = {
     },
     snapOpenButton: () => {
       try {
-        if (!buttonWin || buttonWin.isDestroyed()) return false;
+        let bounds = null;
+        if (toplayerApi && toplayerApi.isRunning()) {
+          const widget = toplayerApi.getWidget && toplayerApi.getWidget('morning-reading-open-button');
+          if (widget && widget.bounds) {
+            bounds = widget.bounds;
+          }
+        } else if (buttonWin && !buttonWin.isDestroyed()) {
+          bounds = buttonWin.getBounds();
+        }
+        if (!bounds) return false;
+        
         const d = screen.getPrimaryDisplay();
-        const wb = buttonWin.getBounds();
         const b = d.bounds;
         const th = 24;
-        let x = wb.x, y = wb.y;
-        if (Math.abs(wb.x - b.x) <= th) x = b.x;
-        if (Math.abs((wb.x + wb.width) - (b.x + b.width)) <= th) x = b.x + b.width - wb.width;
-        if (Math.abs(wb.y - b.y) <= th) y = b.y;
-        if (Math.abs((wb.y + wb.height) - (b.y + b.height)) <= th) y = b.y + b.height - wb.height;
-        if (x !== wb.x || y !== wb.y) buttonWin.setPosition(x, y);
+        let x = bounds.x, y = bounds.y;
+        if (Math.abs(bounds.x - b.x) <= th) x = b.x;
+        if (Math.abs((bounds.x + bounds.width) - (b.x + b.width)) <= th) x = b.x + b.width - bounds.width;
+        if (Math.abs(bounds.y - b.y) <= th) y = b.y;
+        if (Math.abs((bounds.y + bounds.height) - (b.y + b.height)) <= th) y = b.y + b.height - bounds.height;
+        
+        if (x !== bounds.x || y !== bounds.y) {
+          if (toplayerApi && toplayerApi.isRunning()) {
+            toplayerApi.updateWidget('morning-reading-open-button', { x, y });
+          } else if (buttonWin && !buttonWin.isDestroyed()) {
+            buttonWin.setPosition(x, y);
+          }
+        }
         return true;
       } catch (e) { return false; }
     },

@@ -18,16 +18,17 @@
       --accent-rgb: 35, 143, 74;
     }
 
-    html,body{margin:0;background:transparent !important}
+    html,body{margin:0;padding:0;background:transparent !important;overflow:hidden;width:100%;height:100%}
     
     .btn{
-      display:inline-flex;
+      display:flex;
       align-items:center;
+      justify-content:center;
       height:56px;
       padding:0 20px;
       border:1px solid var(--border);
       border-radius:999px;
-      background: var(--bg); /* 使用不透明背景，或者深色半透明 */
+      background: var(--bg);
       color: var(--fg);
       font-weight:600;
       cursor:pointer;
@@ -35,6 +36,9 @@
       gap:8px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.2);
       transition: all 0.2s;
+      white-space:nowrap;
+      width:fit-content;
+      max-width:100%;
     }
     
     .btn i{
@@ -117,40 +121,49 @@
     })();
 
     const btn = document.getElementById('btn-open');
-    let dragging = false; let sx=0, sy=0; let bx=0, by=0; let moved=false; let justDragged=false; let rafScheduled = false; let nextX = 0, nextY = 0;
-    btn.addEventListener('click',async(e)=>{ if (dragging || moved || justDragged) return; try{ await window.pluginAPI?.call('morning-reading','openBoard',[]); window.pluginAPI?.windowControl('close'); }catch (e) {} });
-    const onDown = async (e)=>{
-      try{
-        dragging = true; moved=false; e.target.setPointerCapture?.(e.pointerId);
-        const raw = await window.pluginAPI?.call('morning-reading','getOpenButtonBounds',[]);
-        const b = (raw && raw.result) ? raw.result : raw;
-        bx = (b && typeof b.x==='number') ? b.x : 0;
-        by = (b && typeof b.y==='number') ? b.y : 0;
-        sx = e.screenX; sy = e.screenY;
-        await window.pluginAPI?.call('morning-reading','setOpenButtonDragging',[true]);
-      }catch (e) {}
-    };
-    const onMove = (e)=>{
-      if(!dragging) return;
-      const dx = e.screenX - sx; const dy = e.screenY - sy;
-      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) moved = true;
-      nextX = Math.floor(bx + dx); nextY = Math.floor(by + dy);
-      if (!rafScheduled) {
-        rafScheduled = true;
-        requestAnimationFrame(() => {
-          rafScheduled = false;
-          const x = nextX; const y = nextY;
-          try { window.pluginAPI?.call('morning-reading','moveOpenButtonTo',[x,y]); } catch (e) {}
-        });
+    let isDragging = false;
+    let dragTimeout = null;
+    let pointerDownTime = 0;
+    const DRAG_THRESHOLD_MS = 150;
+    
+    btn.addEventListener('click', async (e) => {
+      if (isDragging) return;
+      try {
+        await window.pluginAPI?.call('morning-reading', 'openBoard', []);
+      } catch (e) {}
+    });
+    
+    btn.addEventListener('pointerdown', (e) => {
+      pointerDownTime = Date.now();
+      dragTimeout = setTimeout(async () => {
+        isDragging = true;
+        try {
+          await window.pluginAPI?.call('morning-reading', 'setOpenButtonDragging', [true]);
+        } catch (e) {}
+      }, DRAG_THRESHOLD_MS);
+    });
+    
+    btn.addEventListener('pointerup', (e) => {
+      if (dragTimeout) {
+        clearTimeout(dragTimeout);
+        dragTimeout = null;
       }
-    };
-    const onUp = async (e)=>{
-      try { btn.releasePointerCapture?.(e.pointerId); } catch (e) {}
-      dragging=false; if (moved) { justDragged = true; setTimeout(()=>{ justDragged=false; }, 200); }
-      try{ await window.pluginAPI?.call('morning-reading','snapOpenButton',[]); await window.pluginAPI?.call('morning-reading','setOpenButtonDragging',[false]); }catch (e) {}
-      try { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); } catch (e) {}
-    };
-    btn.addEventListener('pointerdown', (e)=>{ onDown(e); try { window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp, { once: true }); } catch (e) {} });
+      if (isDragging) {
+        setTimeout(async () => {
+          try {
+            await window.pluginAPI?.call('morning-reading', 'snapOpenButton', []);
+          } catch (e) {}
+          isDragging = false;
+        }, 100);
+      }
+    });
+    
+    btn.addEventListener('pointerleave', (e) => {
+      if (dragTimeout) {
+        clearTimeout(dragTimeout);
+        dragTimeout = null;
+      }
+    });
   </script>
 </body>
 </html>
